@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="style.css">
+    <title>Expense Tracker</title>
+    
+</head>
+<body>
+    <nav class="navbar">
+        <div class="navbar-left">
+            <button class="back-btn" onclick="history.back()">←</button>
+            <div class="logo">
+                <span>💰</span>
+                <span>ExpenseTracker</span>
+            </div>
+        </div>
+        <div class="navbar-right">
+            <div class="total-display">
+                Total: ₹<span id="navTotal">0.00</span>
+            </div>
+            <button class="theme-toggle" onclick="toggleTheme()">
+                <span id="themeIcon">🌙</span>
+            </button>
+        </div>
+    </nav>
+
+    <div class="main-container">
+        <aside class="sidebar">
+            <ul class="sidebar-menu">
+                <li><a href="#" onclick="showPage('home')" class="active" id="homeLink">🏠 Home</a></li>
+                <li><a href="#" onclick="showPage('stats')" id="statsLink">📊 Stats</a></li>
+                <li><a href="#" onclick="showPage('goals')" id="goalsLink">🎯 Goals</a></li>
+            </ul>
+        </aside>
+
+        <main class="content">
+            <!-- Home Page -->
+            <div id="home" class="page active">
+                <div class="page-header">
+                    <h1>Dashboard</h1>
+                    <p>Track your daily expenses and manage your budget</p>
+                </div>
+
+                <div class="home-grid">
+                    <div class="expense-form">
+                        <h3>Add New Expense</h3>
+                        <form id="expenseForm">
+                            <div class="form-group">
+                                <label for="amount">Amount (₹)</label>
+                                <input type="number" id="amount" step="0.01" min="0" required>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="category">Category</label>
+                                <select id="category" required onchange="updateSubcategories()">
+                                    <option value="">Select Category</option>
+                                    <option value="food">🍕 Food & Dining</option>
+                                    <option value="transport">🚗 Transportation</option>
+                                    <option value="entertainment">🎬 Entertainment</option>
+                                    <option value="utilities">💡 Utilities</option>
+                                    <option value="healthcare">🏥 Healthcare</option>
+                                    <option value="other">📦 Other</option>
+                                </select>
+                            </div>
+
+                            <div class="form-group subcategory-group" id="subcategoryGroup">
+                                <label for="subcategory">Subcategory</label>
+                                <select id="subcategory" required>
+                                    <option value="">Select Subcategory</option>
+                                </select>
+                            </div>
+                            
+                            <div class="form-group">
+                                <label for="date">Date</label>
+                                <input type="date" id="date" required>
+                            </div>
+                            
+                            <button type="submit" class="btn">Add Expense</button>
+                        </form>
+                    </div>
+
+                    <div class="expenses-section">
+                        <div class="expenses-header">
+                            <h3>Recent Expenses</h3>
+                            <select id="categoryFilter" class="filter-select"> // 
+                                <option value="all">All Categories</option>
+                                <option value="food">Food & Dining</option>
+                                <option value="transport">Transportation</option>
+                                <option value="entertainment">Entertainment</option>
+                                <option value="utilities">Utilities</option>
+                                <option value="healthcare">Healthcare</option>
+                                <option value="other">Other</option>
+                            </select>
+                        </div>
+                        
+                        <div class="expense-list" id="expenseList">
+                            <div class="empty-state">
+                                <div style="font-size: 3rem; margin-bottom: 15px; opacity: 0.3;">📊</div>
+                                <p>No expenses yet. Add your first expense above!</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Page -->
+            <div id="stats" class="page">
+                <div class="page-header">
+                    <h1>Statistics</h1>
+                    <p>View your spending patterns and insights</p>
+                </div>
+
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-value" id="totalExpenses">₹0.00</div>
+                        <div>Total Expenses</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="avgDaily">₹0.00</div>
+                        <div>Average Daily</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="topCategory">None</div>
+                        <div>Top Category</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-value" id="thisMonth">₹0.00</div>
+                        <div>This Month</div>
+                    </div>
+                </div>
+
+                <div class="expenses-section">
+                    <h3>Category Breakdown</h3>
+                    <div id="categoryBreakdown"></div>
+                </div>
+            </div>
+
+            <!-- Goals Page -->
+            <div id="goals" class="page">
+                <div class="page-header">
+                    <h1>Budget Goals</h1>
+                    <p>Set and track your spending goals</p>
+                </div>
+
+                <div class="goal-section">
+                    <h3>Monthly Budget Goal</h3>
+                    <div class="form-group">
+                        <label for="monthlyGoal">Set Monthly Budget (₹)</label>
+                        <input type="number" id="monthlyGoal" placeholder="Enter amount" onchange="updateGoal()">
+                    </div>
+                    <div class="goal-progress">
+                        <div class="goal-progress-bar" id="goalProgress"></div>
+                    </div>
+                    <p id="goalText">Set a monthly budget to track your progress</p>
+                </div>
+
+                <div class="expenses-section">
+                    <h3>Monthly Expenses</h3>
+                    <div id="monthlyExpenses"></div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+   <script src="script.js"></script>
+</body>
+</html>
