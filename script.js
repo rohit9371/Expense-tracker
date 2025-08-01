@@ -1,7 +1,34 @@
-class ExpenseTracker {
+// Storage Manager - Handles all localStorage operations
+class StorageManager {
+    static getExpenses() {
+        return JSON.parse(localStorage.getItem('expenses')) || [];
+    }
+
+    static saveExpenses(expenses) {
+        localStorage.setItem('expenses', JSON.stringify(expenses));
+    }
+
+    static getMonthlyGoal() {
+        return parseFloat(localStorage.getItem('monthlyGoal')) || 0;
+    }
+
+    static saveMonthlyGoal(goal) {
+        localStorage.setItem('monthlyGoal', goal);
+    }
+
+    static getTheme() {
+        return localStorage.getItem('theme') || 'light';
+    }
+
+    static saveTheme(theme) {
+        localStorage.setItem('theme', theme);
+    }
+}
+
+// Expense Manager - Handles expense CRUD operations
+class ExpenseManager {
     constructor() {
-        this.expenses = JSON.parse(localStorage.getItem('expenses')) || [];
-        this.monthlyGoal = parseFloat(localStorage.getItem('monthlyGoal')) || 0;
+        this.expenses = StorageManager.getExpenses();
         this.subcategories = {
             food: ['Vegetables', 'Fruits', 'Dry Fruits', 'Fast Food', 'Restaurant', 'Groceries', 'Beverages'],
             transport: ['Fuel', 'Public Transport', 'Taxi/Cab', 'Maintenance', 'Parking', 'Tolls'],
@@ -10,46 +37,12 @@ class ExpenseTracker {
             healthcare: ['Medicines', 'Doctor Visit', 'Tests', 'Insurance', 'Dental', 'Gym'],
             other: ['Shopping', 'Gifts', 'Charity', 'Education', 'Travel', 'Miscellaneous']
         };
-        this.init();
     }
 
-    init() {
-        this.bindEvents();
-        this.displayExpenses();
-        this.updateBalance();
-        this.updateStats();
-        this.updateGoalDisplay();
-        this.setDefaultDate();
-        this.loadTheme();
-    }
-
-    bindEvents() {
-        document.getElementById('expenseForm').addEventListener('submit', (e) => this.addExpense(e));
-        document.getElementById('categoryFilter').addEventListener('change', (e) => this.filterExpenses(e));
-    }
-
-    setDefaultDate() {
-        const today = new Date().toISOString().split('T')[0];
-        document.getElementById('date').value = today;
-    }
-
-    loadTheme() {
-        const theme = localStorage.getItem('theme') || 'light';
-        document.documentElement.setAttribute('data-theme', theme);
-        document.getElementById('themeIcon').textContent = theme === 'dark' ? '☀️' : '🌙';
-    }
-
-    addExpense(e) {
-        e.preventDefault();
-        
-        const amount = parseFloat(document.getElementById('amount').value);
-        const category = document.getElementById('category').value;
-        const subcategory = document.getElementById('subcategory').value;
-        const date = document.getElementById('date').value;
-
+    addExpense(amount, category, subcategory, date) {
         const expense = {
             id: Date.now(),
-            amount,
+            amount: parseFloat(amount),
             category,
             subcategory,
             date,
@@ -57,68 +50,36 @@ class ExpenseTracker {
         };
 
         this.expenses.unshift(expense);
-        this.saveToStorage();
-        this.displayExpenses();
-        this.updateBalance();
-        this.updateStats();
-        this.resetForm();
-        this.showSuccessMessage();
+        StorageManager.saveExpenses(this.expenses);
+        return expense;
     }
 
     deleteExpense(id) {
-        if (confirm('Are you sure you want to delete this expense?')) {
-            this.expenses = this.expenses.filter(expense => expense.id !== id);
-            this.saveToStorage();
-            this.displayExpenses();
-            this.updateBalance();
-            this.updateStats();
-        }
+        this.expenses = this.expenses.filter(expense => expense.id !== id);
+        StorageManager.saveExpenses(this.expenses);
+        return this.expenses;
     }
 
-    filterExpenses(e) {
-        const category = e.target.value;
-        this.displayExpenses(category === 'all' ? null : category);
+    getExpenses(filterCategory = null) {
+        if (!filterCategory) {
+            return this.expenses;
+        }
+        return this.expenses.filter(expense => expense.category === filterCategory);
     }
 
-    displayExpenses(filterCategory = null) {
-        const expenseList = document.getElementById('expenseList');
-        let expensesToShow = this.expenses;
-
-        if (filterCategory) {
-            expensesToShow = this.expenses.filter(expense => expense.category === filterCategory);
-        }
-
-        if (expensesToShow.length === 0) {
-            expenseList.innerHTML = `
-                <div class="empty-state">
-                    <div style="font-size: 3rem; margin-bottom: 15px; opacity: 0.3;">📊</div>
-                    <p>${filterCategory ? 'No expenses in this category.' : 'No expenses yet. Add your first expense above!'}</p>
-                </div>
-            `;
-            return;
-        }
-
-        expenseList.innerHTML = expensesToShow.map(expense => `
-            <div class="expense-item">
-                <div class="expense-info">
-                    <div class="expense-category">
-                        ${this.getCategoryIcon(expense.category)} ${expense.category.toUpperCase()}
-                    </div>
-                    <div class="expense-subcategory">${expense.subcategory}</div>
-                    <div class="expense-date">${this.formatDate(expense.date)}</div>
-                </div>
-                <div style="display: flex; align-items: center;">
-                    <div class="expense-amount">₹${expense.amount.toFixed(2)}</div>
-                    <button class="delete-btn" onclick="tracker.deleteExpense(${expense.id})">
-                        Delete
-                    </button>
-                </div>
-            </div>
-        `).join('');
+    getSubcategories(category) {
+        return this.subcategories[category] || [];
     }
 
-    getCategoryIcon(category) {
-        const icons = {
+    refreshExpenses() {
+        this.expenses = StorageManager.getExpenses();
+    }
+}
+
+// UI Manager - Handles DOM manipulation and rendering
+class UIManager {
+    constructor() {
+        this.categoryIcons = {
             food: '🍕',
             transport: '🚗',
             entertainment: '🎬',
@@ -126,7 +87,10 @@ class ExpenseTracker {
             healthcare: '🏥',
             other: '📦'
         };
-        return icons[category] || '📦';
+    }
+
+    getCategoryIcon(category) {
+        return this.categoryIcons[category] || '📦';
     }
 
     formatDate(dateString) {
@@ -139,41 +103,90 @@ class ExpenseTracker {
         });
     }
 
-    updateBalance() {
-        const total = this.expenses.reduce((sum, expense) => sum + expense.amount, 0);
+    displayExpenses(expenses, filterCategory = null) {
+        const expenseList = document.getElementById('expenseList');
+        
+        if (expenses.length === 0) {
+            expenseList.innerHTML = `
+                <div class="empty-state">
+                    <div style="font-size: 3rem; margin-bottom: 15px; opacity: 0.3;">📊</div>
+                    <p>${filterCategory ? 'No expenses in this category.' : 'No expenses yet. Add your first expense above!'}</p>
+                </div>
+            `;
+            return;
+        }
+
+        expenseList.innerHTML = expenses.map(expense => `
+            <div class="expense-item">
+                <div class="expense-info">
+                    <div class="expense-category">
+                        ${this.getCategoryIcon(expense.category)} ${expense.category.toUpperCase()}
+                    </div>
+                    <div class="expense-subcategory">${expense.subcategory}</div>
+                    <div class="expense-date">${this.formatDate(expense.date)}</div>
+                </div>
+                <div style="display: flex; align-items: center;">
+                    <div class="expense-amount">₹${expense.amount.toFixed(2)}</div>
+                    <button class="delete-btn" onclick="app.deleteExpense(${expense.id})">
+                        Delete
+                    </button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    updateBalance(total) {
         document.getElementById('navTotal').textContent = total.toFixed(2);
     }
 
-    updateStats() {
-        const total = this.expenses.reduce((sum, expense) => sum + expense.amount, 0);
-        document.getElementById('totalExpenses').textContent = `₹${total.toFixed(2)}`;
+    updateSubcategories(category, subcategories) {
+        const subcategoryGroup = document.getElementById('subcategoryGroup');
+        const subcategorySelect = document.getElementById('subcategory');
 
-        // Average daily
-        const uniqueDays = new Set(this.expenses.map(e => e.date)).size;
-        const avgDaily = uniqueDays > 0 ? total / uniqueDays : 0;
-        document.getElementById('avgDaily').textContent = `₹${avgDaily.toFixed(2)}`;
-
-        // Top category
-        const categoryTotals = {};
-        this.expenses.forEach(expense => {
-            categoryTotals[expense.category] = (categoryTotals[expense.category] || 0) + expense.amount;
-        });
-        const topCategory = Object.keys(categoryTotals).reduce((a, b) => 
-            categoryTotals[a] > categoryTotals[b] ? a : b, 'None');
-        document.getElementById('topCategory').textContent = topCategory.charAt(0).toUpperCase() + topCategory.slice(1);
-
-        // This month
-        const currentMonth = new Date().toISOString().slice(0, 7);
-        const thisMonthTotal = this.expenses
-            .filter(expense => expense.date.startsWith(currentMonth))
-            .reduce((sum, expense) => sum + expense.amount, 0);
-        document.getElementById('thisMonth').textContent = `₹${thisMonthTotal.toFixed(2)}`;
-
-        // Category breakdown
-        this.updateCategoryBreakdown(categoryTotals);
+        if (category && subcategories.length > 0) {
+            subcategoryGroup.classList.add('show');
+            subcategorySelect.innerHTML = '<option value="">Select Subcategory</option>' +
+                subcategories.map(sub => 
+                    `<option value="${sub}">${sub}</option>`
+                ).join('');
+            subcategorySelect.required = true;
+        } else {
+            subcategoryGroup.classList.remove('show');
+            subcategorySelect.required = false;
+        }
     }
 
-    updateCategoryBreakdown(categoryTotals) {
+    resetForm() {
+        document.getElementById('expenseForm').reset();
+        document.getElementById('subcategoryGroup').classList.remove('show');
+        this.setDefaultDate();
+    }
+
+    setDefaultDate() {
+        const today = new Date().toISOString().split('T')[0];
+        document.getElementById('date').value = today;
+    }
+
+    showSuccessMessage() {
+        const btn = document.querySelector('.btn');
+        const originalText = btn.textContent;
+        btn.textContent = '✓ Added!';
+        btn.style.background = '#27ae60';
+        
+        setTimeout(() => {
+            btn.textContent = originalText;
+            btn.style.background = 'var(--gradient)';
+        }, 1500);
+    }
+
+    displayStats(stats) {
+        document.getElementById('totalExpenses').textContent = `₹${stats.total.toFixed(2)}`;
+        document.getElementById('avgDaily').textContent = `₹${stats.avgDaily.toFixed(2)}`;
+        document.getElementById('topCategory').textContent = stats.topCategory;
+        document.getElementById('thisMonth').textContent = `₹${stats.thisMonth.toFixed(2)}`;
+    }
+
+    displayCategoryBreakdown(categoryTotals) {
         const breakdown = document.getElementById('categoryBreakdown');
         const total = Object.values(categoryTotals).reduce((a, b) => a + b, 0);
         
@@ -191,20 +204,68 @@ class ExpenseTracker {
                 `;
             }).join('');
     }
+}
 
-    updateGoal() {
-        const goal = parseFloat(document.getElementById('monthlyGoal').value) || 0;
-        this.monthlyGoal = goal;
-        localStorage.setItem('monthlyGoal', goal);
-        this.updateGoalDisplay();
-    }
+// Stats Calculator - Handles all statistics calculations
+class StatsCalculator {
+    static calculateStats(expenses) {
+        const total = expenses.reduce((sum, expense) => sum + expense.amount, 0);
+        
+        // Average daily
+        const uniqueDays = new Set(expenses.map(e => e.date)).size;
+        const avgDaily = uniqueDays > 0 ? total / uniqueDays : 0;
 
-    updateGoalDisplay() {
+        // Top category
+        const categoryTotals = this.getCategoryTotals(expenses);
+        const topCategory = Object.keys(categoryTotals).reduce((a, b) => 
+            categoryTotals[a] > categoryTotals[b] ? a : b, 'None');
+        const formattedTopCategory = topCategory.charAt(0).toUpperCase() + topCategory.slice(1);
+
+        // This month
         const currentMonth = new Date().toISOString().slice(0, 7);
-        const thisMonthTotal = this.expenses
+        const thisMonth = expenses
             .filter(expense => expense.date.startsWith(currentMonth))
             .reduce((sum, expense) => sum + expense.amount, 0);
 
+        return {
+            total,
+            avgDaily,
+            topCategory: formattedTopCategory,
+            thisMonth,
+            categoryTotals
+        };
+    }
+
+    static getCategoryTotals(expenses) {
+        const categoryTotals = {};
+        expenses.forEach(expense => {
+            categoryTotals[expense.category] = (categoryTotals[expense.category] || 0) + expense.amount;
+        });
+        return categoryTotals;
+    }
+
+    static getMonthlyTotal(expenses, month = null) {
+        const targetMonth = month || new Date().toISOString().slice(0, 7);
+        return expenses
+            .filter(expense => expense.date.startsWith(targetMonth))
+            .reduce((sum, expense) => sum + expense.amount, 0);
+    }
+}
+
+// Goal Manager - Handles budget goal functionality
+class GoalManager {
+    constructor() {
+        this.monthlyGoal = StorageManager.getMonthlyGoal();
+    }
+
+    updateGoal(goal) {
+        this.monthlyGoal = parseFloat(goal) || 0;
+        StorageManager.saveMonthlyGoal(this.monthlyGoal);
+    }
+
+    updateGoalDisplay(expenses) {
+        const thisMonthTotal = StatsCalculator.getMonthlyTotal(expenses);
+        
         const goalProgress = document.getElementById('goalProgress');
         const goalText = document.getElementById('goalText');
         const monthlyGoalInput = document.getElementById('monthlyGoal');
@@ -223,45 +284,125 @@ class ExpenseTracker {
         }
     }
 
-    saveToStorage() {
-        localStorage.setItem('expenses', JSON.stringify(this.expenses));
-    }
-
-    resetForm() {
-        document.getElementById('expenseForm').reset();
-        document.getElementById('subcategoryGroup').classList.remove('show');
-        this.setDefaultDate();
-    }
-
-    showSuccessMessage() {
-        const btn = document.querySelector('.btn');
-        const originalText = btn.textContent;
-        btn.textContent = '✓ Added!';
-        btn.style.background = '#27ae60';
-        
-        setTimeout(() => {
-            btn.textContent = originalText;
-            btn.style.background = 'var(--gradient)';
-        }, 1500);
+    getMonthlyGoal() {
+        return this.monthlyGoal;
     }
 }
 
-function updateSubcategories() {
-    const category = document.getElementById('category').value;
-    const subcategoryGroup = document.getElementById('subcategoryGroup');
-    const subcategorySelect = document.getElementById('subcategory');
-
-    if (category && tracker.subcategories[category]) {
-        subcategoryGroup.classList.add('show');
-        subcategorySelect.innerHTML = '<option value="">Select Subcategory</option>' +
-            tracker.subcategories[category].map(sub => 
-                `<option value="${sub}">${sub}</option>`
-            ).join('');
-        subcategorySelect.required = true;
-    } else {
-        subcategoryGroup.classList.remove('show');
-        subcategorySelect.required = false;
+// Theme Manager - Handles theme switching
+class ThemeManager {
+    constructor() {
+        this.currentTheme = StorageManager.getTheme();
+        this.loadTheme();
     }
+
+    loadTheme() {
+        document.documentElement.setAttribute('data-theme', this.currentTheme);
+        document.getElementById('themeIcon').textContent = this.currentTheme === 'dark' ? '☀️' : '🌙';
+    }
+
+    toggleTheme() {
+        this.currentTheme = this.currentTheme === 'dark' ? 'light' : 'dark';
+        document.documentElement.setAttribute('data-theme', this.currentTheme);
+        StorageManager.saveTheme(this.currentTheme);
+        document.getElementById('themeIcon').textContent = this.currentTheme === 'dark' ? '☀️' : '🌙';
+    }
+}
+
+// Main Application Class - Coordinates all features
+class ExpenseTrackerApp {
+    constructor() {
+        this.expenseManager = new ExpenseManager();
+        this.uiManager = new UIManager();
+        this.goalManager = new GoalManager();
+        this.themeManager = new ThemeManager();
+        this.init();
+    }
+
+    init() {
+        this.bindEvents();
+        this.displayExpenses();
+        this.updateBalance();
+        this.updateStats();
+        this.updateGoalDisplay();
+        this.uiManager.setDefaultDate();
+    }
+
+    bindEvents() {
+        document.getElementById('expenseForm').addEventListener('submit', (e) => this.addExpense(e));
+        document.getElementById('categoryFilter').addEventListener('change', (e) => this.filterExpenses(e));
+    }
+
+    addExpense(e) {
+        e.preventDefault();
+        
+        const amount = document.getElementById('amount').value;
+        const category = document.getElementById('category').value;
+        const subcategory = document.getElementById('subcategory').value;
+        const date = document.getElementById('date').value;
+
+        this.expenseManager.addExpense(amount, category, subcategory, date);
+        this.displayExpenses();
+        this.updateBalance();
+        this.updateStats();
+        this.uiManager.resetForm();
+        this.uiManager.showSuccessMessage();
+    }
+
+    deleteExpense(id) {
+        if (confirm('Are you sure you want to delete this expense?')) {
+            this.expenseManager.deleteExpense(id);
+            this.displayExpenses();
+            this.updateBalance();
+            this.updateStats();
+        }
+    }
+
+    filterExpenses(e) {
+        const category = e.target.value;
+        this.displayExpenses(category === 'all' ? null : category);
+    }
+
+    displayExpenses(filterCategory = null) {
+        const expenses = this.expenseManager.getExpenses(filterCategory);
+        this.uiManager.displayExpenses(expenses, filterCategory);
+    }
+
+    updateBalance() {
+        const total = this.expenseManager.expenses.reduce((sum, expense) => sum + expense.amount, 0);
+        this.uiManager.updateBalance(total);
+    }
+
+    updateStats() {
+        const stats = StatsCalculator.calculateStats(this.expenseManager.expenses);
+        this.uiManager.displayStats(stats);
+        this.uiManager.displayCategoryBreakdown(stats.categoryTotals);
+    }
+
+    updateGoal() {
+        const goal = document.getElementById('monthlyGoal').value;
+        this.goalManager.updateGoal(goal);
+        this.updateGoalDisplay();
+    }
+
+    updateGoalDisplay() {
+        this.goalManager.updateGoalDisplay(this.expenseManager.expenses);
+    }
+
+    updateSubcategories() {
+        const category = document.getElementById('category').value;
+        const subcategories = this.expenseManager.getSubcategories(category);
+        this.uiManager.updateSubcategories(category, subcategories);
+    }
+
+    toggleTheme() {
+        this.themeManager.toggleTheme();
+    }
+}
+
+// Global functions for HTML event handlers
+function updateSubcategories() {
+    app.updateSubcategories();
 }
 
 function showPage(pageId) {
@@ -275,22 +416,21 @@ function showPage(pageId) {
 
     // Update stats when showing stats page
     if (pageId === 'stats') {
-        tracker.updateStats();
+        app.updateStats();
     }
     // Update goals when showing goals page
     if (pageId === 'goals') {
-        tracker.updateGoalDisplay();
+        app.updateGoalDisplay();
     }
 }
 
 function toggleTheme() {
-    const currentTheme = document.documentElement.getAttribute('data-theme');
-    const newTheme = currentTheme === 'dark' ? 'light' : 'dark';
-    
-    document.documentElement.setAttribute('data-theme', newTheme);
-    localStorage.setItem('theme', newTheme);
-    document.getElementById('themeIcon').textContent = newTheme === 'dark' ? '☀️' : '🌙';
+    app.toggleTheme();
+}
+
+function updateGoal() {
+    app.updateGoal();
 }
 
 // Initialize the app
-const tracker = new ExpenseTracker();
+const app = new ExpenseTrackerApp();
